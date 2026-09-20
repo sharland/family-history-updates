@@ -24,6 +24,15 @@
 - Every commit message ends with the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Run all git commands from `D:\Claude-work\family-history-updates` in Git Bash with forward slashes.
 - Run tests with `python -m pytest -q` from the repo root; `pytest.ini` puts `site\` on the path so modules import each other by bare name (`from wa import inline`).
 
+## Rulings made at preflight (20 Sep 2026) — binding on every task below
+
+1. **Work on `main` directly.** A fresh, solo repository whose plan must publish from `main`; no worktree.
+2. **Nothing private in this repository, ever — including test fixtures.** Fixtures use *fictional* people only (Alice Margaret Penrose, Peter Trevithick, Tamsin Heather Rowe, Walter Noel Penrose, John Trewin). No real living relative's name appears in any file here. Item `source:` values that would contain a living person's name are written in display form (`... Conversation with Alice P.md`).
+3. **Unsent drafts are never committed.** `queue/items/*` and `queue/ready/*` are git-ignored (only `.gitkeep` is tracked); `queue/used/*` and `posts/*` are committed **at the moment of sending**. This is the spec's "nothing unsent is ever published" applied to a public repository.
+4. **The repository is currently PRIVATE** (an earlier draft of the design and plan named living people, including a minor; that history must be cleaned before the repo goes public). **No `git push` and no GitHub Pages enablement in this run** — Task 7 is held; commits are local. Brian decides how the history is cleaned.
+5. **`check.py` exposes `count_words(body)`** as the single word-count rule, so tests can build drafts of exact length.
+6. **Commit trailer:** `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` (the session's model), replacing the trailer shown in the task snippets.
+
 ---
 
 ## File structure
@@ -72,6 +81,13 @@ done
 mkdir -p site tests/fixtures docs
 printf '[pytest]\ntestpaths = tests\npythonpath = site\n' > pytest.ini
 printf 'pytest>=8\n' > requirements-dev.txt
+cat >> .gitignore <<'EOF'
+.superpowers/
+queue/items/*/*
+queue/ready/*/*
+!queue/items/*/.gitkeep
+!queue/ready/*/.gitkeep
+EOF
 ```
 
 - [ ] **Step 2: Write README.md**
@@ -109,7 +125,7 @@ Expected: `no tests ran` (exit code 5 is fine here).
 - [ ] **Step 4: Commit**
 
 ```bash
-git add README.md pytest.ini requirements-dev.txt queue posts
+git add README.md pytest.ini requirements-dev.txt .gitignore queue posts
 git commit -q -m "$(cat <<'EOF'
 Scaffold the repository layout
 
@@ -798,16 +814,15 @@ EOF
 ### Task 6: The draft checker
 
 **Files:**
-- Create: `site/check.py`
-- Create: `tests/fixtures/living.txt`, `tests/fixtures/drafts/sharland-crowe/clean.md`
+- Create: `site/check.py`, `tests/fixtures/living.txt`
 - Test: `tests/test_check.py`
 
 **Interfaces:**
 - Consumes: `frontmatter.parse`, `posts.BRANCHES`, `build.SITE_URL`.
-- Produces: `load_living(path) -> tuple[list[tuple[str, str]], set[str]]` (people as `(full name, display)`, and the lower-cased `shared-surnames` set); `problems(draft: Path, people, shared) -> list[str]`; `main(argv) -> int` (0 clean, 1 problems, 2 usage). CLI: `python site/check.py <draft.md> [--living <file>]`; default living file `D:\Dropbox\Family\family history\.claude\living-people.txt`.
-- **Refinement of spec §6 rule 1, agreed here:** a *bare surname* is flagged only when it is not in the file's `shared-surnames:` line. Family-line surnames (Sharland, Crowe, Ferreira …) are borne by the dead and by the page titles, so flagging them bare would fail every draft; surnames like Penrose that only living people carry are still caught.
+- Produces: `READ_PAST = "Read past updates: "`; `count_words(body: str) -> int` (the body's whitespace-separated tokens, where the closing `Read past updates: <url>` line counts as **one** word); `load_living(path) -> tuple[list[tuple[str, str]], set[str]]` (people as `(full name, display)`, and the lower-cased `shared-surnames:` set); `problems(draft: Path, people, shared) -> list[str]`; `main(argv=None) -> int` (0 clean, 1 problems, 2 usage). CLI: `python site/check.py <draft.md> [--living <file>]`; default living file `D:\Dropbox\Family\family history\.claude\living-people.txt`.
+- **Refinement of spec §6 rule 1, agreed:** a *bare surname* is flagged only when it is not in the file's `shared-surnames:` line. Family-line surnames (Sharland, Crowe, Ferreira, Gresty) are borne by the dead and by the page titles, so flagging them bare would fail every draft; a surname carried only by living people (Penrose in the fixture) is still caught.
 
-- [ ] **Step 1: Create the fixtures**
+- [ ] **Step 1: Write the fixture** (fictional people only — see the rulings)
 
 `tests/fixtures/living.txt`:
 
@@ -819,103 +834,109 @@ Peter Trevithick | Peter T.
 Tamsin Heather Rowe | —
 ```
 
-`tests/fixtures/drafts/sharland-crowe/clean.md` — the body must be **exactly 200 words** counted as in Step 4 below (the closing line counts as one). Write it as: the title line (four words), then paragraphs of ordinary prose about long-dead people, then the closing line. A generator for the fixture, run once and the output committed:
-
-```python
-# run once from the repo root, then delete nothing — commit the .md it writes
-from pathlib import Path
-title = "*Family history — 21 September*"
-sentence = "Great-grandfather John Crowe was a consulting engineer and his wife Laura kept the Royal Pier Hotel at Weston."  # 18 words
-body_words = 200 - 4 - 1  # title words, closing line counts as one
-paras, count = [], 0
-while count + 18 <= body_words:
-    paras.append(sentence); count += 18
-paras.append(" ".join(["Alice P. remembers it well."] + ["Indeed."] * (body_words - count - 5)))
-text = "---\ndate: 2026-09-21\nitems:\n  - 2026-09-17-crowe-1911-census\nsent:\n---\n" + title + "\n\n" + "\n\n".join(paras) + "\n\nRead past updates: https://sharland.github.io/family-history-updates/sharland-crowe/\n"
-Path("tests/fixtures/drafts/sharland-crowe").mkdir(parents=True, exist_ok=True)
-Path("tests/fixtures/drafts/sharland-crowe/clean.md").write_text(text, encoding="utf-8", newline="\n")
-```
-
 - [ ] **Step 2: Write the failing tests**
 
 ```python
 # tests/test_check.py
-import shutil
 from pathlib import Path
 
-from check import load_living, problems, main
+from build import SITE_URL
+from check import READ_PAST, count_words, load_living, main, problems
+from frontmatter import parse
 
 FIX = Path(__file__).parent / "fixtures"
-CLEAN = FIX / "drafts" / "sharland-crowe" / "clean.md"
+TITLE = "*Family history — 21 September*"
+OPENING = "Great-grandfather John Trewin kept the Royal Pier Hotel at Weston."
 
 
 def people():
     return load_living(FIX / "living.txt")
 
 
-def variant(tmp_path: Path, replace: tuple[str, str] | None = None, branch="sharland-crowe", text=None) -> Path:
+def draft_text(words=200, branch="sharland-crowe", opening=OPENING, extra=(), link=None):
+    """A draft whose counted length is exactly `words` (the closing link counts as one)."""
+    fixed = [TITLE, opening, *extra]
+    filler = " ".join(["Indeed."] * (words - sum(len(p.split()) for p in fixed) - 1))
+    paragraphs = [TITLE, opening] + ([filler] if filler else []) + list(extra)
+    closing = READ_PAST + SITE_URL + branch + "/" if link is None else link
+    body = "\n\n".join(paragraphs) + "\n\n" + closing + "\n"
+    return "---\ndate: 2026-09-21\nitems:\n  - x\nsent:\n---\n" + body
+
+
+def write(tmp_path, text, branch="sharland-crowe"):
     folder = tmp_path / "queue" / "ready" / branch
-    folder.mkdir(parents=True)
-    src = CLEAN.read_text(encoding="utf-8") if text is None else text
-    if replace:
-        assert replace[0] in src, "replacement target must exist in the clean fixture"
-        src = src.replace(replace[0], replace[1], 1)
-    out = folder / "draft.md"
-    out.write_text(src, encoding="utf-8", newline="\n")
-    return out
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "draft.md"
+    path.write_text(text, encoding="utf-8", newline="\n")
+    return path
+
+
+def found(tmp_path, **kw):
+    return problems(write(tmp_path, draft_text(**kw), kw.get("branch", "sharland-crowe")), *people())
+
+
+def test_helper_builds_exact_word_counts():
+    for n in (150, 200, 250):
+        assert count_words(parse(draft_text(words=n))[1]) == n
 
 
 def test_parser_reads_people_and_shared_surnames_and_ignores_comments():
     persons, shared = people()
     assert ("Alice Margaret Penrose", "Alice P.") in persons
+    assert ("Tamsin Heather Rowe", "—") in persons
     assert shared == {"sharland", "crowe", "ferreira", "gresty"}
 
 
 def test_clean_draft_passes(tmp_path):
-    assert problems(variant(tmp_path), *people()) == []
+    assert found(tmp_path) == []
 
 
 def test_full_name_and_short_form_fail(tmp_path):
-    assert any("Alice Margaret Penrose" in p for p in problems(variant(tmp_path, ("Alice P.", "Alice Margaret Penrose")), *people()))
-    assert any("Alice Penrose" in p for p in problems(variant(tmp_path, ("Alice P.", "Alice Penrose")), *people()))
+    assert any("Alice Margaret Penrose" in p for p in found(tmp_path, opening="Alice Margaret Penrose remembers it."))
+    assert any("Alice Penrose" in p for p in found(tmp_path / "b", opening="Alice Penrose remembers it."))
 
 
 def test_bare_unshared_surname_fails_but_shared_surname_passes(tmp_path):
-    assert any("Penrose" in p for p in problems(variant(tmp_path, ("Alice P.", "the Penrose family")), *people()))
-    assert problems(variant(tmp_path, ("Alice P.", "the Sharland family")), *people()) == []
+    assert any("Penrose" in p for p in found(tmp_path, opening="The Penrose family kept the hotel."))
+    assert found(tmp_path / "b", opening="The Sharland family kept the hotel.") == []
 
 
 def test_minor_first_name_fails(tmp_path):
-    assert any("minor" in p for p in problems(variant(tmp_path, ("Alice P.", "Tamsin and Alice P.")), *people()))
+    assert any("minor" in p for p in found(tmp_path, opening="Tamsin and Alice P. came too."))
 
 
 def test_word_count_bounds(tmp_path):
-    persons, shared = people()
-    base = CLEAN.read_text(encoding="utf-8")
-    assert problems(variant(tmp_path, text=base.replace(" Indeed.", "", 50)), persons, shared) == []          # 150 passes
-    assert problems(variant(tmp_path, text=base.replace(" Indeed.", "", 51)), persons, shared)                # 149 fails
-    assert problems(variant(tmp_path, text=base.replace("Indeed.", "Indeed. " + "More. " * 49 + "More.", 1)), persons, shared) == []  # 250 passes
-    assert problems(variant(tmp_path, text=base.replace("Indeed.", "Indeed. " + "More. " * 50 + "More.", 1)), persons, shared)        # 251 fails
+    for i, (n, ok) in enumerate([(150, True), (149, False), (250, True), (251, False)]):
+        result = found(tmp_path / str(i), words=n)
+        assert (result == []) is ok, (n, result)
+        if not ok:
+            assert any("words" in p for p in result)
 
 
 def test_missing_or_wrong_branch_link_fails(tmp_path):
-    persons, shared = people()
-    assert any("last line" in p for p in problems(variant(tmp_path, ("Read past updates: https://sharland.github.io/family-history-updates/sharland-crowe/", "Goodbye.")), persons, shared))
-    assert any("last line" in p for p in problems(variant(tmp_path, branch="ferreira-gresty"), persons, shared))
+    assert any("last line" in p for p in found(tmp_path, link="Goodbye."))
+    wrong = write(tmp_path / "b", draft_text(branch="sharland-crowe"), branch="ferreira-gresty")
+    assert any("last line" in p for p in problems(wrong, *people()))
 
 
 def test_markdown_and_leaked_source_fail(tmp_path):
-    persons, shared = people()
-    assert any("**" in p for p in problems(variant(tmp_path, ("*Family history", "**Family history")), persons, shared))
-    assert any("#" in p for p in problems(variant(tmp_path, ("Indeed.", "# Indeed.")), persons, shared))
-    assert any("link" in p.lower() for p in problems(variant(tmp_path, ("Indeed.", "[Indeed](https://x.test)")), persons, shared))
-    assert any("source:" in p for p in problems(variant(tmp_path, ("Indeed.", "source: Documents\\x.md")), persons, shared))
+    cases = [("**Bold**", "**"), ("# A heading", "#"), ("[text](https://x.test)", "link"), ("source: Documents\\x.md", "source:")]
+    for i, (line, needle) in enumerate(cases):
+        result = found(tmp_path / str(i), extra=(line,))
+        assert any(needle in p.lower() or needle in p for p in result), (line, result)
+
+
+def test_draft_outside_a_branch_folder_fails(tmp_path):
+    path = tmp_path / "elsewhere" / "draft.md"
+    path.parent.mkdir()
+    path.write_text(draft_text(), encoding="utf-8", newline="\n")
+    assert any("branch folder" in p for p in problems(path, *people()))
 
 
 def test_cli_exit_codes(tmp_path, capsys):
-    draft = variant(tmp_path)
-    assert main([str(draft), "--living", str(FIX / "living.txt")]) == 0
-    bad = variant(tmp_path / "b", ("Alice P.", "Alice Penrose"))
+    good = write(tmp_path / "g", draft_text())
+    assert main([str(good), "--living", str(FIX / "living.txt")]) == 0
+    bad = write(tmp_path / "b", draft_text(opening="Alice Penrose remembers it."))
     assert main([str(bad), "--living", str(FIX / "living.txt")]) == 1
     assert "PROBLEM" in capsys.readouterr().out
     assert main([]) == 2
@@ -965,6 +986,13 @@ def load_living(path) -> tuple[list[tuple[str, str]], set[str]]:
     return people, shared
 
 
+def count_words(body: str) -> int:
+    lines = [l for l in body.strip().splitlines() if l.strip()]
+    if lines and lines[-1].strip().startswith(READ_PAST):
+        return len(re.findall(r"\S+", "\n".join(lines[:-1]))) + 1
+    return len(re.findall(r"\S+", body))
+
+
 def _word_re(phrase: str) -> re.Pattern:
     return re.compile(r"(?<!\w)" + r"\s+".join(map(re.escape, phrase.split())) + r"(?!\w)", re.IGNORECASE)
 
@@ -1001,8 +1029,7 @@ def problems(draft: Path, people, shared) -> list[str]:
     expected = f"{READ_PAST}{SITE_URL}{branch}/"
     if last != expected:
         out.append(f"last line must be exactly: {expected}")
-    counted = "\n".join(lines[:-1]) if last.startswith(READ_PAST) else body
-    words = len(re.findall(r"\S+", counted)) + (1 if last.startswith(READ_PAST) else 0)
+    words = count_words(body)
     if not MIN_WORDS <= words <= MAX_WORDS:
         out.append(f"{words} words — need {MIN_WORDS}–{MAX_WORDS}")
 
@@ -1043,24 +1070,24 @@ if __name__ == "__main__":
 - [ ] **Step 5: Run to verify pass**
 
 Run: `python -m pytest tests/test_check.py -q`
-Expected: `9 passed`. If `test_word_count_bounds` is off by one, the clean fixture is not exactly 200 words — regenerate it with the Step 1 script and check `python -c "..."` prints 200 using the same counting rule as `problems()`.
+Expected: `11 passed`
 
 - [ ] **Step 6: Run the whole suite**
 
 Run: `python -m pytest -q`
-Expected: all green (frontmatter 5, wa 7, posts 4, build 7, check 9 = 32 passed).
+Expected: all green (frontmatter 5, wa 7, posts 4, build 7, check 11 = 34 passed).
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add site/check.py tests/test_check.py tests/fixtures/living.txt tests/fixtures/drafts
+git add site/check.py tests/test_check.py tests/fixtures/living.txt
 git commit -q -m "$(cat <<'EOF'
 Check a draft against the living-people rule and the post format
 
 Bare surnames are flagged only when not in the list's shared-surnames
 line, so family-line names borne by the dead do not fail every draft.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -1068,6 +1095,8 @@ EOF
 ---
 
 ### Task 7: Publish the empty site
+
+> **HELD — do not execute in this run (ruling 4).** The repository is private and its earlier history must be cleaned before it goes public and before anything is pushed. Brian decides; the steps below stay as the record of what to do afterwards.
 
 **Files:**
 - Modify: nothing in the tree; GitHub repository settings.
@@ -1112,7 +1141,7 @@ Expected: a `200` within a few minutes; the two `grep -c` lines print `1`. Do no
 - Create (private, outside the repo): `D:\Dropbox\Family\family history\.claude\living-people.txt`, `D:\Dropbox\Family\family history\.claude\digest-style.md`
 
 **Interfaces:**
-- Produces: `candidates(ged_text: str, cutoff_year: int = 1926) -> list[tuple[str, str]]` — `(full name, display form)` for every INDI with no `DEAT` and a birth year > cutoff or no birth year; `render(candidates) -> str` — the file text with the header and a prefilled `shared-surnames:` line. CLI: `python site/seed_living.py <file.ged> <out.txt>`; **refuses to overwrite an existing `out.txt`** (writes `<out>.seed.txt` instead) — the research folder's nothing-deleted rule.
+- Produces: `candidates(ged_text: str, cutoff_year: int = 1926) -> list[tuple[str, str]]` — `(full name, display form)` for every INDI with no `DEAT` and a birth year > cutoff, **and** for undated people, which `render` writes as *commented-out* lines under an `# UNDATED — probably dead; uncomment any who are alive` heading so the active list holds only clear cases; anyone born in **2008 or later is treated as a minor** and gets the display form `—`; `render(candidates) -> str` — the file text with the header and a prefilled `shared-surnames:` line. CLI: `python site/seed_living.py <file.ged> <out.txt>`; **refuses to overwrite an existing `out.txt`** (writes `<out>.seed.txt` instead) — the research folder's nothing-deleted rule.
 
 - [ ] **Step 1: Write the fixture and the failing tests**
 
@@ -1127,14 +1156,14 @@ Expected: a `200` within a few minutes; the two `grep -c` lines print `1`. Do no
 1 BIRT
 2 DATE 1943
 0 @I2@ INDI
-1 NAME Malcolm Noel /Sharland/
+1 NAME Walter Noel /Penrose/
 1 SEX M
 1 BIRT
 2 DATE 17 Dec 1917
 1 DEAT
 2 DATE 19 Jul 1944
 0 @I3@ INDI
-1 NAME John /Crowe/
+1 NAME John /Trewin/
 1 SEX M
 1 BIRT
 2 DATE 1 Apr 1846
@@ -1157,14 +1186,26 @@ from seed_living import candidates, render, main
 FIX = Path(__file__).parent / "fixtures" / "mini.ged"
 
 
+def test_children_get_the_do_not_mention_marker():
+    got = dict(candidates(FIX.read_text(encoding="utf-8")))
+    assert got["Tamsin Heather Rowe"] == "—"
+
+
+def test_render_comments_out_the_undated():
+    text = render(candidates(FIX.read_text(encoding="utf-8")))
+    assert "\n# UNDATED" in text
+    assert "\n# Peter Trevithick | Peter T.\n" in text
+    assert "\nAlice Margaret Penrose | Alice P.\n" in text
+
+
 def test_candidates_are_the_undead_born_after_cutoff_or_undated():
     got = candidates(FIX.read_text(encoding="utf-8"))
     names = [full for full, _ in got]
     assert "Alice Margaret Penrose" in names      # born 1943, no death
     assert "Peter Trevithick" in names                  # no birth, no death
     assert "Tamsin Heather Rowe" in names           # born 2011
-    assert "Malcolm Noel Sharland" not in names       # dead
-    assert "John Crowe" not in names                  # born 1846
+    assert "Walter Noel Penrose" not in names       # dead
+    assert "John Trewin" not in names                  # born 1846
 
 
 def test_display_form_is_first_name_and_surname_initial():
@@ -1297,7 +1338,6 @@ Seed the private living-people list from a GEDCOM export
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 EOF
 )"
-git push
 ```
 
 ---
@@ -1321,7 +1361,7 @@ Each file has the item front matter of spec §5.1 (`date`, `weight`, `source`) a
 | `2026-09-17-bunny-dolly-birth-years.md` | 1 | `Tree_Task_List.md` B4 | The 1891 and 1911 censuses fix two great-great-aunts' birth years the tree had wrong: Bunny 1 July 1891; Dolly January 1890 |
 | `2026-09-17-bird-wedding.md` | 3 | `Documents\Crowe family history\Crowe Family History (1977 typescript) - index and extracts.md`, "Uncle Ted Crowe" note | Bunny married Ted Crowe in 1924 — her second cousin — with his father the Rector of Cavan officiating; the family called it "The Bird Wedding"; Grandpa Crowe signed as witness |
 | `2026-09-17-amberley-1881.md` | 2 | `Documents\Research notes\Mayor Mattocks.md`, 1881 section | The 1881 census at Amberley, Bournemouth: great-great-grandmother Hannah, 30, keeping house for her widowed mother Hannah Hill, 72, lodging-house keeper; William Claridge Sharland a farmer |
-| `2026-09-19-chough.md` | 2 | `Documents\Family correspondence\2026-09-19 Conversation with Alice Penrose.md` §1; `Images\20th Century\1950s\Chough christening (album page) - record.md` | "Chough", the nickname; the boat Grandad built in Rhodesia; Gran christening it in June 1958 |
+| `2026-09-19-chough.md` | 2 | `Documents\Family correspondence\2026-09-19 Conversation with Alice P.md` §1; `Images\20th Century\1950s\Chough christening (album page) - record.md` | "Chough", the nickname; the boat Grandad built in Rhodesia; Gran christening it in June 1958 |
 | `2026-09-19-tap-and-die.md` | 2 | `Dossiers\Crowe\Richard John Southwell Crowe\2026-09-19 R J S Crowe tap and die set - record.md`; the Alice conversation §5 | Alice P. has passed on Grandpa Crowe's tap and die set; his Celtic Fields inventions — the gate switch in the road, the foot-pump taps |
 | `2026-09-20-sybil-dossier.md` | 2 | `Dossiers\Rixom\Sybil Maud Rixom (Crowe)\Sybil Maud Rixom (Crowe) - Research Dossier.md` §4 | Great-granny Sybil now has a file of her own: top of all England in Pitman's shorthand and typing; ran the Royal Pier Hotel for sixteen years |
 | `2026-09-20-tree-corrections.md` | 1 | `Ancestry tree corrections - September 2026.md` | A batch of corrections going into the Ancestry tree — say briefly what kind, and that a fresh export follows |
@@ -1332,7 +1372,7 @@ Example — `queue/items/sharland-crowe/2026-09-19-chough.md`:
 ---
 date: 2026-09-19
 weight: 2
-source: Documents\Family correspondence\2026-09-19 Conversation with Alice Penrose.md
+source: Documents\Family correspondence\2026-09-19 Conversation with Alice P.md
 ---
 *Grandpa Crowe's nickname was "Chough".* Alice P. told me it was because a chough is "the least objectionable bird of the crow family". In 1958 Grandad built a small sailing boat in Rhodesia and named it after him — there's a photograph in Alice's album of Gran breaking a bottle on the bow, with Dad, aged 13, standing between them.
 ```

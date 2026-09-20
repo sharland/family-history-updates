@@ -92,7 +92,7 @@ Written the moment a tellable thing happens, not at the end of the session. One 
 ---
 date: 2026-09-19
 weight: 2
-source: Documents\Family correspondence\2026-09-19 Conversation with Alice Penrose.md
+source: Documents\Family correspondence\2026-09-19 Conversation with Alice P.md
 ---
 *Grandpa Crowe's nickname was "Chough".* Alice P. told me it was because a chough is "the least objectionable bird of the crow family". Grandad built a small sailing boat in Rhodesia in 1958 and named it after him — there's a photograph of Gran christening it with a bottle.
 ```
