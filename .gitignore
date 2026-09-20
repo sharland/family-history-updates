@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+.superpowers/
+queue/items/*/*
+queue/ready/*/*
+!queue/items/*/.gitkeep
+!queue/ready/*/.gitkeep
