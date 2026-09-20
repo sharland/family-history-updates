@@ -1,0 +1,5 @@
+# Living people — full name | how they appear in posts. Comments start with #.
+shared-surnames: Sharland, Crowe, Ferreira, Gresty
+Alice Margaret Penrose | Alice P.
+Peter Trevithick | Peter T.
+Tamsin Heather Rowe | —
