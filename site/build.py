@@ -8,11 +8,12 @@ import sys
 from pathlib import Path
 from string import Template
 
+import check
+from config import DEFAULT_LIVING, SITE_URL
 from posts import BRANCHES, load_posts, long_date
 from wa import render_post
 
 ROOT = Path(__file__).resolve().parent.parent
-SITE_URL = "https://sharland.github.io/family-history-updates/"
 
 TITLES = {
     "sharland-crowe": "Sharland and Crowe family history — updates from Brian",
@@ -67,7 +68,48 @@ def build(root: Path = ROOT) -> dict[Path, str]:
         pages[root / "docs" / branch / "index.html"] = render_branch_page(
             branch, load_posts(root, branch), template
         )
+    pages[root / "docs" / ".nojekyll"] = ""
     return pages
+
+
+def gate(root: Path = ROOT, living_path=DEFAULT_LIVING) -> list[str]:
+    """Re-check every sent post; return 'relpath: message' for each problem."""
+    root = Path(root)
+    living_path = Path(living_path)
+    people, shared = [], set()
+    if living_path.is_file():
+        people, shared = check.load_living(living_path)
+    if not people:
+        print("WARNING: living-people list unavailable - name checks were SKIPPED", file=sys.stderr)
+    found = []
+    for branch in BRANCHES:
+        for post in load_posts(root, branch):
+            rel = post.path.relative_to(root).as_posix()
+            found += [f"{rel}: {m}" for m in check.problems(post.path, people, shared)]
+    return found
+
+
+def main(argv=None, root: Path = ROOT) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    argv = sys.argv[1:] if argv is None else list(argv)
+    living = DEFAULT_LIVING
+    if "--living" in argv:
+        i = argv.index("--living")
+        if i + 1 >= len(argv):
+            print("usage: build.py [--living <living-people.txt>]")
+            return 2
+        living = argv[i + 1]
+    found = gate(root, living)
+    for message in found:
+        print("PROBLEM:", message)
+    if found:
+        return 1
+    pages = build(root)
+    write(pages)
+    for path in pages:
+        print("wrote", path.relative_to(root).as_posix())
+    return 0
 
 
 def write(files: dict[Path, str]) -> None:
@@ -77,8 +119,4 @@ def write(files: dict[Path, str]) -> None:
 
 
 if __name__ == "__main__":
-    pages = build()
-    write(pages)
-    for path in pages:
-        print("wrote", path.relative_to(ROOT))
-    sys.exit(0)
+    sys.exit(main())

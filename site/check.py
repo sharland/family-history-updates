@@ -11,13 +11,12 @@ import sys
 import unicodedata
 from pathlib import Path
 
-from build import SITE_URL
+from config import DEFAULT_LIVING, READ_PAST, SITE_URL
 from frontmatter import parse
 from posts import BRANCHES
 
 DEFAULT_LIVING = Path(r"D:\Dropbox\Family\family history\.claude\living-people.txt")
 MIN_WORDS, MAX_WORDS = 150, 250
-READ_PAST = "Read past updates: "
 MINOR_MARKERS = {"-", "–", "—"}  # hyphen, en dash, em dash
 
 
@@ -107,6 +106,10 @@ def problems(draft: Path, people, shared) -> list[str]:
         out.append("Markdown link [text](url) — write the bare URL")
     if re.search(r"^\s*source:", body, re.MULTILINE):
         out.append("a 'source:' line has leaked from an item into the body")
+    if "@" in body:
+        out.append("looks like an email address or handle")
+    if re.search(r"\+?\d[\d ()-]{8,}\d", body):
+        out.append("looks like a phone number")
     return out
 
 
@@ -120,6 +123,9 @@ def main(argv=None) -> int:
     living = DEFAULT_LIVING
     if "--living" in argv:
         i = argv.index("--living")
+        if i + 1 >= len(argv):
+            print("usage: check.py <draft.md> [--living <living-people.txt>]")
+            return 2
         living = Path(argv[i + 1])
         del argv[i:i + 2]
     if not living.is_file():

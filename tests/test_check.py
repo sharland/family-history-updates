@@ -172,3 +172,24 @@ def test_cli_fails_closed_on_missing_or_empty_list(tmp_path, capsys):
     empty = living_file(tmp_path, "# nothing\nshared-surnames: Sharland\n")
     assert main([str(good), "--living", str(empty)]) == 2
     assert "has no people" in capsys.readouterr().out
+
+
+def test_email_or_handle_fails(tmp_path):
+    assert any("email address or handle" in p for p in found(tmp_path, extra=("Write to me at brian@example.com.",)))
+    assert any("email address or handle" in p for p in found(tmp_path / "h", extra=("Find me @brian on it.",)))
+
+
+def test_phone_number_fails(tmp_path):
+    for i, num in enumerate(("+44 7700 900123", "01234 567890", "(01934) 555-0142")):
+        assert any("phone number" in p for p in found(tmp_path / str(i), extra=(f"Ring {num} any time.",))), num
+
+
+def test_years_and_counts_do_not_look_like_phone_numbers(tmp_path):
+    extra = ("The tree now has 142 ancestors, born 16 September 1918, between 1891 and 1911.",)
+    assert found(tmp_path, extra=extra) == []
+
+
+def test_living_flag_without_value_is_usage_error(tmp_path, capsys):
+    good = write(tmp_path, draft_text())
+    assert main([str(good), "--living"]) == 2
+    assert "usage" in capsys.readouterr().out

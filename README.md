@@ -19,4 +19,10 @@ Living relatives are referred to by first name and initial only. Replies go to t
 
 Posts without a `sent:` date are never published. Sent posts are never edited; corrections go in the next post.
 
+## Running the scripts
+
+Run the tools as `python site/build.py`, `python site/check.py <draft>` and `python -m pytest`. Never run `python -c "import posts"` (or a REPL) from the repo root: the top-level `posts/` folder shadows `site/posts.py`.
+
+`python site/build.py` re-checks every sent post first and writes nothing if any check fails.
+
 The design is in `design/`. Tests: `python -m pytest -q`.
