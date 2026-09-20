@@ -15,7 +15,6 @@ from config import DEFAULT_LIVING, READ_PAST, SITE_URL
 from frontmatter import parse
 from posts import BRANCHES
 
-DEFAULT_LIVING = Path(r"D:\Dropbox\Family\family history\.claude\living-people.txt")
 MIN_WORDS, MAX_WORDS = 150, 250
 MINOR_MARKERS = {"-", "–", "—"}  # hyphen, en dash, em dash
 
