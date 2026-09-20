@@ -81,10 +81,15 @@ def test_missing_or_wrong_branch_link_fails(tmp_path):
 
 
 def test_markdown_and_leaked_source_fail(tmp_path):
-    cases = [("**Bold**", "**"), ("# A heading", "#"), ("[text](https://x.test)", "link"), ("source: Documents\\x.md", "source:")]
-    for i, (line, needle) in enumerate(cases):
+    cases = [
+        ("**Bold**", "Markdown bold"),
+        ("# A heading", "Markdown heading"),
+        ("[text](https://x.test)", "Markdown link"),
+        ("source: Documents\\x.md", "'source:' line"),
+    ]
+    for i, (line, message) in enumerate(cases):
         result = found(tmp_path / str(i), extra=(line,))
-        assert any(needle in p.lower() or needle in p for p in result), (line, result)
+        assert any(message in p for p in result), (line, result)
 
 
 def test_draft_outside_a_branch_folder_fails(tmp_path):
@@ -101,3 +106,69 @@ def test_cli_exit_codes(tmp_path, capsys):
     assert main([str(bad), "--living", str(FIX / "living.txt")]) == 1
     assert "PROBLEM" in capsys.readouterr().out
     assert main([]) == 2
+
+
+def living_file(tmp_path, text):
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    path = tmp_path / "living.txt"
+    path.write_text(text, encoding="utf-8", newline="\n")
+    return path
+
+
+def found_with(tmp_path, living_text, **kw):
+    living = load_living(living_file(tmp_path, living_text))
+    return problems(write(tmp_path, draft_text(**kw)), *living)
+
+
+SHARED = "shared-surnames: Sharland, Crowe\n"
+
+
+def test_underscore_italics_do_not_hide_names(tmp_path):
+    assert any("Alice Penrose" in p for p in found(tmp_path, opening="_Alice Penrose_ remembers it."))
+    assert any("Penrose" in p and "bare" in p for p in found(tmp_path / "b", opening="_Penrose_ kept it."))
+
+
+def test_surname_inside_another_surname_is_not_flagged(tmp_path):
+    result = found_with(tmp_path, "Tamsin Rowe | Tamsin R.\n", opening="The Crowe family kept the hotel.")
+    assert not any("Rowe" in p for p in result), result
+
+
+def test_surname_first_form_fails_for_shared_surname(tmp_path):
+    living = SHARED + "Alice Sharland | Alice S.\n"
+    assert any("Sharland, Alice" in p for p in found_with(tmp_path, living, opening="Sharland, Alice came."))
+
+
+def test_middle_initial_without_period_fails(tmp_path):
+    living = SHARED + "Alice Margaret Sharland | Alice S.\n"
+    assert any("Alice M Sharland" in p for p in found_with(tmp_path, living, opening="Alice M Sharland came."))
+
+
+def test_minor_marker_accepts_hyphen_and_en_dash(tmp_path):
+    for i, mark in enumerate(["-", "–", "—", " - "]):
+        result = found_with(tmp_path / str(i), f"Tamsin Heather Rowe | {mark}\n", opening="Tamsin came too.")
+        assert any("minor" in p for p in result), (mark, result)
+
+
+def test_curly_apostrophe_and_accents_are_normalised(tmp_path):
+    result = found_with(tmp_path, "Conor O'Brien | Conor O.\n", opening="Conor O’Brien came.")
+    assert any("Conor" in p for p in result), result
+    result = found_with(tmp_path / "b", SHARED + "Zoë Penrose | Zoë P.\n", opening="Zoe Penrose came.")
+    assert any("Penrose" in p for p in result), result
+
+
+def test_word_count_uses_original_body_after_normalisation(tmp_path):
+    assert found_with(tmp_path, SHARED + "Alice Penrose | Alice P.\n", opening="Café ’quoted’ hotel.", words=150) == []
+
+
+def test_empty_name_line_is_skipped(tmp_path):
+    persons, _ = load_living(living_file(tmp_path, " | Nobody\nPeter Trevithick | Peter T.\n"))
+    assert persons == [("Peter Trevithick", "Peter T.")]
+
+
+def test_cli_fails_closed_on_missing_or_empty_list(tmp_path, capsys):
+    good = write(tmp_path / "g", draft_text())
+    assert main([str(good), "--living", str(tmp_path / "nope.txt")]) == 2
+    assert "living-people list not found" in capsys.readouterr().out
+    empty = living_file(tmp_path, "# nothing\nshared-surnames: Sharland\n")
+    assert main([str(good), "--living", str(empty)]) == 2
+    assert "has no people" in capsys.readouterr().out
