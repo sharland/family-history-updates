@@ -6,5 +6,6 @@ Thumbs.db
 .superpowers/
 queue/items/*/*
 queue/ready/*/*
+queue/dropped/*
 !queue/items/*/.gitkeep
 !queue/ready/*/.gitkeep
