@@ -114,6 +114,11 @@ def test_gate_passes_a_compliant_sent_post(tmp_path):
     assert (root / "docs" / "sharland-crowe" / "index.html").is_file()
 
 
+def test_gate_does_not_apply_the_length_guide_to_a_sent_post(tmp_path):
+    root = gate_repo(tmp_path, draft_text(words=251))
+    assert build.gate(root, LIVING) == []
+
+
 def test_gate_ignores_unsent_drafts(tmp_path):
     root = gate_repo(tmp_path, draft_text(opening="Alice Penrose remembers it."), sent="")
     assert build.gate(root, LIVING) == []
@@ -141,11 +146,11 @@ def test_post_in_wrong_folder_is_refused(tmp_path):
 
 def test_missing_living_list_warns_but_still_enforces_list_free_rules(tmp_path, capsys):
     missing = tmp_path / "nope.txt"
-    root = gate_repo(tmp_path, draft_text(words=100))
+    root = gate_repo(tmp_path, draft_text(link="Read past updates: https://example.com/"))
     assert build.main(["--living", str(missing)], root=root) == 1
     cap = capsys.readouterr()
     assert "WARNING: living-people list unavailable - name checks were SKIPPED" in cap.err
-    assert "words" in cap.out
+    assert "last line" in cap.out
     assert not (root / "docs").exists()
     ok = gate_repo(tmp_path / "ok", draft_text())
     assert build.main(["--living", str(missing)], root=ok) == 0

@@ -85,7 +85,8 @@ def gate(root: Path = ROOT, living_path=DEFAULT_LIVING) -> list[str]:
     for branch in BRANCHES:
         for post in load_posts(root, branch):
             rel = post.path.relative_to(root).as_posix()
-            found += [f"{rel}: {m}" for m in check.problems(post.path, people, shared)]
+            # Length is a drafting guide; a post already sent cannot be shortened.
+            found += [f"{rel}: {m}" for m in check.problems(post.path, people, shared, check_length=False)]
     return found
 
 

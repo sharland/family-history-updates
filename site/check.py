@@ -69,7 +69,7 @@ def name_forms(full: str) -> set[str]:
     return forms
 
 
-def problems(draft: Path, people, shared) -> list[str]:
+def problems(draft: Path, people, shared, check_length: bool = True) -> list[str]:
     draft = Path(draft)
     _, body = parse(draft.read_text(encoding="utf-8"))
     norm_body = _norm(body)
@@ -94,7 +94,7 @@ def problems(draft: Path, people, shared) -> list[str]:
     if last != expected:
         out.append(f"last line must be exactly: {expected}")
     words = count_words(body)
-    if not MIN_WORDS <= words <= MAX_WORDS:
+    if check_length and not MIN_WORDS <= words <= MAX_WORDS:
         out.append(f"{words} words — need {MIN_WORDS}–{MAX_WORDS}")
 
     if "**" in body:
