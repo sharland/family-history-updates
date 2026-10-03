@@ -4,6 +4,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 .superpowers/
+.ticket-scope
 queue/items/*/*
 queue/ready/*/*
 queue/dropped/*
