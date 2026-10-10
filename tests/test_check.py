@@ -179,6 +179,12 @@ def test_email_or_handle_fails(tmp_path):
     assert any("email address or handle" in p for p in found(tmp_path / "h", extra=("Find me @brian on it.",)))
 
 
+def test_whatsapp_mention_of_a_listed_first_name_passes(tmp_path):
+    assert not any("handle" in p for p in found(tmp_path, extra=("@Alice this one is for you.",)))
+    assert any("handle" in p for p in found(tmp_path / "e", extra=("Write to alice@example.com today.",)))
+    assert any("handle" in p for p in found(tmp_path / "s", extra=("@Stranger this one is for you.",)))
+
+
 def test_phone_number_fails(tmp_path):
     for i, num in enumerate(("+44 7700 900123", "01234 567890", "(01934) 555-0142")):
         assert any("phone number" in p for p in found(tmp_path / str(i), extra=(f"Ring {num} any time.",))), num

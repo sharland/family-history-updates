@@ -105,7 +105,10 @@ def problems(draft: Path, people, shared, check_length: bool = True) -> list[str
         out.append("Markdown link [text](url) — write the bare URL")
     if re.search(r"^\s*source:", body, re.MULTILINE):
         out.append("a 'source:' line has leaked from an item into the body")
-    if "@" in body:
+    # A WhatsApp mention of someone on the living list by first name ("@Rosemary") is not a handle.
+    first_names = sorted({re.escape(full.split()[0]) for full, _ in people})
+    unmentioned = re.sub(r"(?<![\w.@])@(?:" + "|".join(first_names) + r")(?![\w@])", "", body) if first_names else body
+    if "@" in unmentioned:
         out.append("looks like an email address or handle")
     if re.search(r"\+?\d[\d ()-]{8,}\d", body):
         out.append("looks like a phone number")
